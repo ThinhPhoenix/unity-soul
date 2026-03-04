@@ -69,107 +69,127 @@ public class SwordDamage : MonoBehaviour
     
     private void OnTriggerEnter(Collider other)
     {
-        // Add debug message to check collision is happening
-        if (showDebug) Debug.Log($"Sword collided with: {other.gameObject.name} on layer {LayerMask.LayerToName(other.gameObject.layer)}");
-        
-        // Only deal damage when allowed and not hitting self
+        if (showDebug)
+        {
+            Debug.Log($"Sword collided with: {other.gameObject.name} on layer {LayerMask.LayerToName(other.gameObject.layer)}");
+        }
+
+        TryApplyDamage(other, "enter");
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        if (!canDealDamage || hitObjectsThisSwing.Contains(other))
+        {
+            return;
+        }
+
+        TryApplyDamage(other, "stay");
+    }
+
+    private void TryApplyDamage(Collider other, string collisionPhase)
+    {
         if (!canDealDamage)
         {
-            if (showDebug) Debug.Log("Collision ignored: Sword cannot deal damage now");
+            if (showDebug && collisionPhase == "enter")
+            {
+                Debug.Log("Collision ignored: Sword cannot deal damage now");
+            }
             return;
         }
-        
-        // Prevent hitting the same object multiple times in one swing
+
         if (hitObjectsThisSwing.Contains(other))
         {
-            if (showDebug) Debug.Log("Collision ignored: Already hit during this swing");
+            if (showDebug && collisionPhase == "enter")
+            {
+                Debug.Log("Collision ignored: Already hit during this swing");
+            }
             return;
         }
-        
-        // Kiểm tra kỹ lưỡng để tránh gây sát thương cho người chơi
-        
-        // Kiểm tra 1: Đối tượng va chạm có phải là người chơi không
-        if (playerObject != null && other.gameObject == playerObject)
+
+        if (IsPlayerCollision(other))
+        {
+            return;
+        }
+
+        int otherLayer = 1 << other.gameObject.layer;
+        bool isDamageLayer = (damageLayers.value & otherLayer) != 0;
+        if (!isDamageLayer)
+        {
+            if (showDebug && collisionPhase == "enter")
+            {
+                Debug.Log($"Collision ignored: Object on layer {LayerMask.LayerToName(other.gameObject.layer)} not in damage layers mask");
+            }
+            return;
+        }
+
+        BossHealthBarController bossHealth = TryGetBossHealth(other);
+        if (bossHealth == null)
+        {
+            if (showDebug && collisionPhase == "enter")
+            {
+                Debug.Log("No BossHealthBarController found on hit object");
+            }
+            return;
+        }
+
+        hitObjectsThisSwing.Add(other);
+        bossHealth.TakeDamage(damage);
+
+        if (showDebug)
+        {
+            Debug.Log($"Sword hit boss ({collisionPhase})! Dealing {damage} damage. Boss health: {bossHealth.luongMauHienTai}");
+        }
+
+        if (hitEffectPrefab != null)
+        {
+            Instantiate(hitEffectPrefab, other.ClosestPoint(transform.position), Quaternion.identity);
+        }
+    }
+
+    private bool IsPlayerCollision(Collider other)
+    {
+        bool isPlayerRoot = playerObject != null && other.gameObject == playerObject;
+        if (isPlayerRoot)
         {
             if (showDebug) Debug.Log("Collision ignored: Prevented self-damage to player");
-            return;
+            return true;
         }
-        
-        // Kiểm tra 2: Đối tượng va chạm có phải là con của người chơi không
-        if (playerObject != null && other.transform.IsChildOf(playerObject.transform))
+
+        bool isPlayerChild = playerObject != null && other.transform.IsChildOf(playerObject.transform);
+        if (isPlayerChild)
         {
             if (showDebug) Debug.Log("Collision ignored: Prevented damage to player's child object");
-            return;
+            return true;
         }
-        
-        // Kiểm tra 3: Đối tượng va chạm có tag "Player" không
-        if (other.CompareTag("Player"))
+
+        bool hasPlayerTag = other.CompareTag("Player");
+        if (hasPlayerTag)
         {
             if (showDebug) Debug.Log("Collision ignored: Object has Player tag");
-            return;
+            return true;
         }
-        
-        // Kiểm tra 4: Đối tượng va chạm có PlayerHealthController không
+
         PlayerHealthController otherPlayerHealth = other.GetComponent<PlayerHealthController>();
-        if (otherPlayerHealth != null)
+        bool hasPlayerHealthController = otherPlayerHealth != null;
+        if (hasPlayerHealthController)
         {
             if (showDebug) Debug.Log("Collision ignored: Object has PlayerHealthController");
-            return;
+            return true;
         }
-        
-        // Check if the hit object is on a valid layer
-        int otherLayer = 1 << other.gameObject.layer;
-        if ((damageLayers.value & otherLayer) == 0)
-        {
-            if (showDebug) Debug.Log($"Collision ignored: Object on layer {LayerMask.LayerToName(other.gameObject.layer)} not in damage layers mask");
-            return;
-        }
-        
-        // Try to find a boss health controller on the hit object
+
+        return false;
+    }
+
+    private BossHealthBarController TryGetBossHealth(Collider other)
+    {
         BossHealthBarController bossHealth = other.GetComponent<BossHealthBarController>();
         if (bossHealth != null)
         {
-            // Add to hit list to prevent multiple hits in same swing
-            hitObjectsThisSwing.Add(other);
-            
-            // Apply damage to the boss
-            bossHealth.TakeDamage(damage);
-            
-            // Show debug info
-            if (showDebug)
-            {
-                Debug.Log($"Sword hit boss! Dealing {damage} damage. Boss health: {bossHealth.luongMauHienTai}");
-            }
-            
-            // Spawn hit effect if available
-            if (hitEffectPrefab != null)
-            {
-                Instantiate(hitEffectPrefab, other.ClosestPoint(transform.position), Quaternion.identity);
-            }
+            return bossHealth;
         }
-        else
-        {
-            if (showDebug) Debug.Log("No BossHealthBarController found on hit object");
-            
-            // Try to find boss health on parent objects
-            bossHealth = other.GetComponentInParent<BossHealthBarController>();
-            if (bossHealth != null)
-            {
-                // Add to hit list to prevent multiple hits in same swing
-                hitObjectsThisSwing.Add(other);
-                
-                // Apply damage to the boss
-                bossHealth.TakeDamage(damage);
-                
-                if (showDebug) Debug.Log($"Sword hit boss (via parent)! Dealing {damage} damage. Boss health: {bossHealth.luongMauHienTai}");
-                
-                // Spawn hit effect if available
-                if (hitEffectPrefab != null)
-                {
-                    Instantiate(hitEffectPrefab, other.ClosestPoint(transform.position), Quaternion.identity);
-                }
-            }
-        }
+
+        return other.GetComponentInParent<BossHealthBarController>();
     }
     
     // Visualize the sword's hit area
