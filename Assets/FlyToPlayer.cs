@@ -43,6 +43,9 @@ public class FlyToPlayer : MonoBehaviour
     private bool isInitialized = false;
     private DamagingRock damagingRock;
     private static Transform cachedPlayerTransform;
+    private static Collider[] cachedSceneColliders = System.Array.Empty<Collider>();
+    private static float nextColliderCacheRefreshTime = float.NegativeInfinity;
+    private const float ColliderCacheRefreshInterval = 0.5f;
 
     // The fixed target position (player's position at spawn time)
     private Vector3 targetPosition;
@@ -101,7 +104,7 @@ public class FlyToPlayer : MonoBehaviour
         }
 
         bool hasPlayerTransform = TryResolvePlayerTransform(out Transform resolvedPlayerTransform);
-        Collider[] allColliders = Object.FindObjectsOfType<Collider>();
+        Collider[] allColliders = GetSceneColliderSnapshot();
 
         foreach (Collider otherCollider in allColliders)
         {
@@ -119,6 +122,19 @@ public class FlyToPlayer : MonoBehaviour
         }
 
         Debug.Log("FlyToPlayer: Set up to ignore all collisions except with player-tagged objects");
+    }
+
+    private static Collider[] GetSceneColliderSnapshot()
+    {
+        bool hasCache = cachedSceneColliders != null && cachedSceneColliders.Length > 0;
+        if (hasCache && Time.unscaledTime < nextColliderCacheRefreshTime)
+        {
+            return cachedSceneColliders;
+        }
+
+        cachedSceneColliders = Object.FindObjectsByType<Collider>(FindObjectsSortMode.None);
+        nextColliderCacheRefreshTime = Time.unscaledTime + ColliderCacheRefreshInterval;
+        return cachedSceneColliders;
     }
 
     private bool TryResolvePlayerTransform(out Transform resolvedPlayerTransform)
