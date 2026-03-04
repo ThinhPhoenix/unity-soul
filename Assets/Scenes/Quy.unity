@@ -132,7 +132,6 @@ GameObject:
   - component: {fileID: 15728833}
   - component: {fileID: 15728832}
   - component: {fileID: 15728836}
-  - component: {fileID: 15728837}
   - component: {fileID: 15728838}
   - component: {fileID: 15728839}
   - component: {fileID: 15728840}
@@ -259,23 +258,6 @@ MonoBehaviour:
   autoLoadWinScene: 1
   destroyDelay: 2
   winSceneIndex: 4
---- !u!114 &15728837
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 15728831}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9dfe1c77073ba4292bb184c2b90aef9f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxHP: 500
-  damageSound: {fileID: 0}
-  damageSoundVolume: 1
-  bossHealthBar: {fileID: 678232074}
-  bossModel: {fileID: 0}
 --- !u!114 &15728838
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5271,16 +5253,10 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 0134ac0d6520a455ab2d6d00fdd25abe, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2134196151}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 0134ac0d6520a455ab2d6d00fdd25abe, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 2134196154}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 0134ac0d6520a455ab2d6d00fdd25abe, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2134196155}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 0134ac0d6520a455ab2d6d00fdd25abe, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 2134196156}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 0134ac0d6520a455ab2d6d00fdd25abe, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2134196157}
@@ -6199,31 +6175,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 0134ac0d6520a455ab2d6d00fdd25abe, type: 3}
   m_PrefabInstance: {fileID: 1798252278}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &2134196151
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134196150}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6d6892175615ccd4ea4b745ed23ab7b0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  luongMauHienTai: 12000
-  luongMauToiDa: 12000
-  healthSlider: {fileID: 0}
-  smoothHealthBar: 1
-  smoothSpeed: 5
-  showHitFeedback: 1
-  hitFlashDuration: 0.15
-  hitColor: {r: 1, g: 0, b: 0, a: 1}
-  damageSound: {fileID: 0}
-  damageSoundVolume: 1
-  autoLoadWinScene: 1
-  destroyDelay: 2
-  winSceneIndex: 4
 --- !u!33 &2134196154
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -6259,23 +6210,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &2134196156
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2134196150}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9dfe1c77073ba4292bb184c2b90aef9f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxHP: 12000
-  damageSound: {fileID: 0}
-  damageSoundVolume: 1
-  bossHealthBar: {fileID: 678232074}
-  bossModel: {fileID: 0}
 --- !u!114 &2134196157
 MonoBehaviour:
   m_ObjectHideFlags: 0
