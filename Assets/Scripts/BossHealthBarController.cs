@@ -186,6 +186,11 @@ public class BossHealthBarController : MonoBehaviour
 
         hasSentDefeatSignal = true;
 
+        if (gameStateManager == null)
+        {
+            FindGameStateManager();
+        }
+
         if (gameStateManager != null)
         {
             gameStateManager.NotifyBossDefeated();
@@ -193,6 +198,11 @@ public class BossHealthBarController : MonoBehaviour
         }
 
         Debug.LogWarning("GameStateManager is missing when boss is defeated.");
+        if (autoLoadWinScene)
+        {
+            Debug.LogWarning($"Fallback: loading win scene {winSceneIndex} directly.");
+            SceneManager.LoadScene(winSceneIndex);
+        }
     }
     
     private void PlayDamageSound()
