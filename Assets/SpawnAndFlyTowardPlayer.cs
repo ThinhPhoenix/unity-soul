@@ -181,8 +181,9 @@ public class SpawnAndFlyTowardPlayer : MonoBehaviour
             // Cấu hình DamagingRock
             damagingRock.destroyOnAnyImpact = true;
             damagingRock.canDamagePlayer = true;
-            Debug.Log("Configured DamagingRock: can damage player, will destroy on impact");
-            
+            damagingRock.canDamageBoss = false;
+            damagingRock.SetOwner(transform);
+            Debug.Log("Configured DamagingRock for boss projectile: owner set, boss damage disabled");
             // Xóa bất kỳ component FlyToPlayer nào để tránh xung đột
             FlyToPlayer oldFlyComponent = newObject.GetComponent<FlyToPlayer>();
             if (oldFlyComponent != null)

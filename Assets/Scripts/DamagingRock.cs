@@ -12,6 +12,10 @@ public class DamagingRock : MonoBehaviour
     [Tooltip("Should this rock damage the player?")]
     public bool canDamagePlayer = true;
 
+    [Tooltip("Should this rock damage boss targets?")]
+    public bool canDamageBoss = true;
+
+    private Transform ownerRoot;
     [Header("Destruction Settings")]
     [Tooltip("Should this rock be destroyed on impact with any collider?")]
     public bool destroyOnAnyImpact = true;
@@ -43,37 +47,54 @@ public class DamagingRock : MonoBehaviour
     {
         HandleCollision(collision.gameObject);
     }
+
+    public void SetOwner(Transform owner)
+    {
+        ownerRoot = owner == null ? null : owner.root;
+    }
+
+    private bool IsCollisionWithOwner(GameObject other)
+    {
+        if (ownerRoot == null)
+        {
+            return false;
+        }
+
+        Transform otherTransform = other.transform;
+        return otherTransform == ownerRoot || otherTransform.IsChildOf(ownerRoot);
+    }
     
     private void HandleCollision(GameObject other)
     {
         Debug.Log($"Rock collided with: {other.name} (Layer: {LayerMask.LayerToName(other.layer)})");
         
-        // Kiểm tra layer của đối tượng va chạm
+        if (IsCollisionWithOwner(other))
+        {
+            Debug.Log($"Rock ignored owner collision: {other.name}");
+            return;
+        }
+
         int otherLayer = 1 << other.layer;
         if ((damageLayers.value & otherLayer) == 0)
         {
             Debug.Log($"Rock ignoring collision with {other.name} due to layer mask");
             return;
         }
-        
+
         bool shouldDestroy = false;
-        
-        // Check if the rock hit the player
-        PlayerHealthController playerHealth = other.GetComponent<PlayerHealthController>();
-        if (playerHealth != null && canDamagePlayer)
+
+        PlayerHealthController playerHealth = other.GetComponentInParent<PlayerHealthController>();
+        if (playerHealth != null && canDamagePlayer && !IsCollisionWithOwner(playerHealth.gameObject))
         {
             Debug.Log($"Player hit! Dealing {damage} damage");
-            // Apply damage to the player
             playerHealth.TakeDamage(damage);
             shouldDestroy = true;
         }
-        
-        // Check if the rock hit a boss
-        BossHealthBarController bossHealth = other.GetComponent<BossHealthBarController>();
-        if (bossHealth != null)
+
+        BossHealthBarController bossHealth = other.GetComponentInParent<BossHealthBarController>();
+        if (bossHealth != null && canDamageBoss && !IsCollisionWithOwner(bossHealth.gameObject))
         {
             Debug.Log($"Boss hit! Dealing {damage} damage");
-            // Apply damage to the boss
             bossHealth.TakeDamage(damage);
             shouldDestroy = true;
         }

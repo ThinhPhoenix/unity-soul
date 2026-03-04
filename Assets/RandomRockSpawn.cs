@@ -142,11 +142,18 @@ public class RandomSpawner : MonoBehaviour
             }
         }
 
-        // Đảm bảo đá có component DamagingRock
-        if (spawnedObject.GetComponent<DamagingRock>() == null)
+        DamagingRock damagingRock = spawnedObject.GetComponent<DamagingRock>();
+        if (damagingRock == null)
         {
-            spawnedObject.AddComponent<DamagingRock>();
+            damagingRock = spawnedObject.AddComponent<DamagingRock>();
             Debug.Log("Added DamagingRock component to rock");
+        }
+
+        if (shouldFlyToPlayer)
+        {
+            damagingRock.canDamagePlayer = true;
+            damagingRock.canDamageBoss = false;
+            damagingRock.SetOwner(transform);
         }
 
         // Log thông tin về đá đã spawn
