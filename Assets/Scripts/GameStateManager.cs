@@ -248,24 +248,27 @@ public class GameStateManager : MonoBehaviour
         // Optional: Play transition sound
         // AudioSource.PlayClipAtPoint(transitionSound, Camera.main.transform.position);
         
-        // Clean up resources if needed
-        CleanupResources();
-        
         yield return new WaitForSeconds(transitionDelay);
         
         Debug.Log($"Loading scene {sceneIndex} now");
         SceneManager.LoadScene(sceneIndex);
+        CleanupResources();
     }
     
     private void CleanupResources()
     {
         // Stop any ongoing processes, particle systems, etc.
         
-        // Reset the singleton instance when changing scenes
-        Instance = null;
-        staticInstance = null;
+        if (Instance == this)
+        {
+            Instance = null;
+        }
         
-        // Don't destroy this object on scene change - let it be destroyed naturally
+        if (staticInstance == this)
+        {
+            staticInstance = null;
+        }
+        
         Destroy(gameObject);
     }
     
