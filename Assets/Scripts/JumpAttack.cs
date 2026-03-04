@@ -196,6 +196,13 @@ public class JumpAttack : MonoBehaviour
         if (shockwavePrefab != null)
         {
             GameObject shockwave = Instantiate(shockwavePrefab, transform.position, Quaternion.identity);
+            DamagingRock damagingRock = shockwave.GetComponent<DamagingRock>();
+            if (damagingRock != null)
+            {
+                damagingRock.canDamagePlayer = true;
+                damagingRock.canDamageBoss = false;
+                damagingRock.SetOwner(transform);
+            }
             Destroy(shockwave, shockwaveDuration);
         }
         else

@@ -72,18 +72,28 @@ public class PrefabSpawner : MonoBehaviour
             selectedSpawnPoint = spawnPoints[currentSpawnCount % spawnPoints.Length];
         }
 
-        // Spawn the prefab
         GameObject spawnedObject = Instantiate(
             prefabToSpawn,
             selectedSpawnPoint.position,
             selectedSpawnPoint.rotation
         );
 
-        // Increment counter
-        currentSpawnCount++;
+        ConfigureDamagingRock(spawnedObject);
 
-        // Optional: You can add event notification here
-        // OnPrefabSpawned?.Invoke(spawnedObject);
+        currentSpawnCount++;
+    }
+
+    private void ConfigureDamagingRock(GameObject spawnedObject)
+    {
+        DamagingRock damagingRock = spawnedObject.GetComponent<DamagingRock>();
+        if (damagingRock == null)
+        {
+            return;
+        }
+
+        damagingRock.canDamagePlayer = true;
+        damagingRock.canDamageBoss = false;
+        damagingRock.SetOwner(transform);
     }
 
     // Public methods for external control

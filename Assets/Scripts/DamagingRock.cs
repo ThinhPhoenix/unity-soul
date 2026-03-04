@@ -13,7 +13,7 @@ public class DamagingRock : MonoBehaviour
     public bool canDamagePlayer = true;
 
     [Tooltip("Should this rock damage boss targets?")]
-    public bool canDamageBoss = true;
+    public bool canDamageBoss = false;
 
     private Transform ownerRoot;
     [Header("Destruction Settings")]
