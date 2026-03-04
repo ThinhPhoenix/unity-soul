@@ -245,8 +245,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6d6892175615ccd4ea4b745ed23ab7b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  luongMauHienTai: 500
-  luongMauToiDa: 500
+  luongMauHienTai: 300
+  luongMauToiDa: 300
   healthSlider: {fileID: 1970173684}
   smoothHealthBar: 1
   smoothSpeed: 5
