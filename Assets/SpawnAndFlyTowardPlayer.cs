@@ -30,6 +30,7 @@ public class SpawnAndFlyTowardPlayer : MonoBehaviour
     [Tooltip("Whether to spawn continuously or just once")]
     public bool continuousSpawning = true;
 
+    private static Transform cachedPlayerTransform;
     private void Start()
     {
         // Validate parameters
@@ -62,20 +63,15 @@ public class SpawnAndFlyTowardPlayer : MonoBehaviour
             }
         }
 
-        if (playerTransform == null)
+        if (playerTransform == null && !TryResolvePlayerTransform(out playerTransform))
         {
-            // Try to find the player automatically
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                playerTransform = player.transform;
-                Debug.Log("Player found automatically. Using " + player.name + " as target.");
-            }
-            else
-            {
-                Debug.LogError("No player transform assigned and no GameObject with tag 'Player' found!");
-                return;
-            }
+            Debug.LogError("No player transform assigned and no GameObject with tag 'Player' found!");
+            return;
+        }
+
+        if (playerTransform != null)
+        {
+            cachedPlayerTransform = playerTransform;
         }
 
         // If no spawn point assigned, use this object's transform
@@ -115,7 +111,7 @@ public class SpawnAndFlyTowardPlayer : MonoBehaviour
             return;
         }
         
-        if (playerTransform == null)
+        if (playerTransform == null && !TryResolvePlayerTransform(out playerTransform))
         {
             Debug.LogWarning("No player transform to target! Skipping spawn.");
             return;
@@ -200,6 +196,33 @@ public class SpawnAndFlyTowardPlayer : MonoBehaviour
         }
     }
 
+    private bool TryResolvePlayerTransform(out Transform resolvedPlayerTransform)
+    {
+        if (playerTransform != null)
+        {
+            cachedPlayerTransform = playerTransform;
+            resolvedPlayerTransform = playerTransform;
+            return true;
+        }
+
+        if (cachedPlayerTransform != null)
+        {
+            resolvedPlayerTransform = cachedPlayerTransform;
+            return true;
+        }
+
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null)
+        {
+            resolvedPlayerTransform = null;
+            return false;
+        }
+
+        cachedPlayerTransform = player.transform;
+        resolvedPlayerTransform = cachedPlayerTransform;
+        Debug.Log("Player found automatically. Using " + player.name + " as target.");
+        return true;
+    }
     // Public method to spawn an object (can be called from other scripts or events)
     public void SpawnNow()
     {

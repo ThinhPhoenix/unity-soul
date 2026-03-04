@@ -14,6 +14,7 @@ public class FlyTowardsPlayer : MonoBehaviour
     private Vector3 flyDirection;
     private Rigidbody rb;
 
+    private static Transform cachedPlayerTransform;
     private void Start()
     {
         // Lấy component Rigidbody
@@ -23,26 +24,21 @@ public class FlyTowardsPlayer : MonoBehaviour
             rb = gameObject.AddComponent<Rigidbody>();
             Debug.Log("Added Rigidbody to object for FlyTowardsPlayer");
         }
-        
+
         // Cấu hình Rigidbody
         rb.useGravity = false;
         rb.constraints = RigidbodyConstraints.FreezeRotation;
-        
-        if (playerTransform == null)
+
+        if (playerTransform == null && !TryResolvePlayerTransform(out playerTransform))
         {
-            // Try to find the player if not set
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                playerTransform = player.transform;
-                Debug.Log($"Found player: {player.name}");
-            }
-            else
-            {
-                Debug.LogError("No player transform set for FlyTowardsPlayer script!");
-                Destroy(this);
-                return;
-            }
+            Debug.LogError("No player transform set for FlyTowardsPlayer script!");
+            Destroy(this);
+            return;
+        }
+
+        if (playerTransform != null)
+        {
+            cachedPlayerTransform = playerTransform;
         }
 
         // Set initial direction if not using homing behavior
@@ -51,6 +47,26 @@ public class FlyTowardsPlayer : MonoBehaviour
             flyDirection = (playerTransform.position - transform.position).normalized;
             Debug.Log($"Initial direction to player: {flyDirection}");
         }
+    }
+
+    private bool TryResolvePlayerTransform(out Transform resolvedPlayerTransform)
+    {
+        if (cachedPlayerTransform != null)
+        {
+            resolvedPlayerTransform = cachedPlayerTransform;
+            return true;
+        }
+
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player == null)
+        {
+            resolvedPlayerTransform = null;
+            return false;
+        }
+
+        cachedPlayerTransform = player.transform;
+        resolvedPlayerTransform = cachedPlayerTransform;
+        return true;
     }
 
     private void FixedUpdate()

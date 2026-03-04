@@ -37,10 +37,12 @@ public class FlyToPlayer : MonoBehaviour
 
     // References
     private Rigidbody rb;
+    private Collider projectileCollider;
     private float currentSpeed;
     private float accelerationProgress = 0f;
     private bool isInitialized = false;
     private DamagingRock damagingRock;
+    private static Transform cachedPlayerTransform;
 
     // The fixed target position (player's position at spawn time)
     private Vector3 targetPosition;
@@ -49,6 +51,7 @@ public class FlyToPlayer : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        projectileCollider = GetComponent<Collider>();
         damagingRock = GetComponent<DamagingRock>();
 
         // Make sure rigidbody is set up correctly
@@ -91,59 +94,106 @@ public class FlyToPlayer : MonoBehaviour
 
     private void SetupCollisionIgnore()
     {
-        // Get this object's collider
-        Collider myCollider = GetComponent<Collider>();
-        if (myCollider == null)
+        if (projectileCollider == null)
         {
             Debug.LogWarning("FlyToPlayer: No Collider found on this object!");
             return;
         }
 
-        // Find all colliders in the scene
+        bool hasPlayerTransform = TryResolvePlayerTransform(out Transform resolvedPlayerTransform);
         Collider[] allColliders = Object.FindObjectsOfType<Collider>();
 
         foreach (Collider otherCollider in allColliders)
         {
-            // Skip our own collider
-            if (otherCollider == myCollider)
+            if (otherCollider == null || otherCollider == projectileCollider || otherCollider.isTrigger)
+            {
                 continue;
+            }
 
-            // Skip triggers as they don't cause physical collisions anyway
-            if (otherCollider.isTrigger)
+            if (IsPlayerCollider(otherCollider, resolvedPlayerTransform, hasPlayerTransform))
+            {
                 continue;
+            }
 
-            // Don't ignore collisions with player-tagged objects
-            if (otherCollider.CompareTag(playerTag))
-                continue;
-
-            // Ignore collisions with everything else
-            Physics.IgnoreCollision(myCollider, otherCollider, true);
+            Physics.IgnoreCollision(projectileCollider, otherCollider, true);
         }
 
         Debug.Log("FlyToPlayer: Set up to ignore all collisions except with player-tagged objects");
     }
 
+    private bool TryResolvePlayerTransform(out Transform resolvedPlayerTransform)
+    {
+        if (cachedPlayerTransform != null)
+        {
+            resolvedPlayerTransform = cachedPlayerTransform;
+            return true;
+        }
+
+        GameObject playerObject = GameObject.FindGameObjectWithTag(playerTag);
+        if (playerObject == null)
+        {
+            resolvedPlayerTransform = null;
+            return false;
+        }
+
+        cachedPlayerTransform = playerObject.transform;
+        resolvedPlayerTransform = cachedPlayerTransform;
+        return true;
+    }
+
+    private bool IsPlayerCollider(Collider candidateCollider, Transform resolvedPlayerTransform, bool hasPlayerTransform)
+    {
+        if (candidateCollider.CompareTag(playerTag))
+        {
+            return true;
+        }
+
+        if (!hasPlayerTransform || resolvedPlayerTransform == null)
+        {
+            return false;
+        }
+
+        return candidateCollider.transform.IsChildOf(resolvedPlayerTransform);
+    }
+
+    private bool IsPlayerObject(GameObject candidateObject)
+    {
+        if (candidateObject == null)
+        {
+            return false;
+        }
+
+        if (candidateObject.CompareTag(playerTag))
+        {
+            return true;
+        }
+
+        if (!TryResolvePlayerTransform(out Transform resolvedPlayerTransform) || resolvedPlayerTransform == null)
+        {
+            return false;
+        }
+
+        return candidateObject.transform.IsChildOf(resolvedPlayerTransform);
+    }
+
     public void FindPlayerOnce()
     {
-        GameObject playerObject = GameObject.FindGameObjectWithTag(playerTag);
-
-        if (playerObject != null)
-        {
-            // Record the player's position at this moment only
-            targetPosition = playerObject.transform.position;
-
-            // Calculate the direction to fly (only once)
-            flyDirection = (targetPosition - transform.position).normalized;
-
-            isInitialized = true;
-            StartCoroutine(AccelerateTowardsTarget());
-
-            Debug.Log($"FlyToPlayer targeting player at position {targetPosition}");
-        }
-        else
+        if (!TryResolvePlayerTransform(out Transform resolvedPlayerTransform) || resolvedPlayerTransform == null)
         {
             Debug.LogWarning($"FlyToPlayer: No object with tag '{playerTag}' found!");
+            return;
         }
+
+        // Record the player's position at this moment only
+        targetPosition = resolvedPlayerTransform.position;
+
+        // Calculate the direction to fly (only once)
+        flyDirection = (targetPosition - transform.position).normalized;
+
+        isInitialized = true;
+        StartCoroutine(AccelerateTowardsTarget());
+
+        Debug.Log($"FlyToPlayer targeting player at position {targetPosition}");
     }
 
     public void SetTargetPosition(Vector3 position)
@@ -191,7 +241,7 @@ public class FlyToPlayer : MonoBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         // Only respond to collisions with the player
-        if (collision.gameObject.CompareTag(playerTag))
+        if (IsPlayerObject(collision.gameObject))
         {
             HandlePlayerCollision(collision.gameObject);
         }
@@ -200,7 +250,7 @@ public class FlyToPlayer : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         // Only respond to triggers with the player
-        if (other.CompareTag(playerTag))
+        if (IsPlayerObject(other.gameObject))
         {
             HandlePlayerCollision(other.gameObject);
         }

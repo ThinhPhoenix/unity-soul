@@ -124,6 +124,10 @@ public class PlayerController : MonoBehaviour
     private bool isRunning = false;  // New parameter to track running state
     private float currentMoveSpeed;  // New parameter to store current speed
 
+    [Header("Input Fallback")]
+    [SerializeField] private bool useLegacyInputFallback = true;
+    [SerializeField] private float inputSystemFallbackDelay = 0.35f;
+    private float lastInputSystemEventTime = float.NegativeInfinity;
     private const float MovementInputThreshold = 0.1f;
     private const float LandingVelocityThreshold = 0.1f;
     private const float JumpLandingProgressThreshold = 0.6f;
@@ -341,6 +345,7 @@ public class PlayerController : MonoBehaviour
     // Handle Input System movement
     public void onMove(InputAction.CallbackContext context)
     {
+        MarkInputSystemActivity(context);
         moveInput = context.ReadValue<Vector2>();
 
         // Emergency debug for input
@@ -353,6 +358,8 @@ public class PlayerController : MonoBehaviour
     // New method to handle Run input
     public void onRun(InputAction.CallbackContext context)
     {
+        MarkInputSystemActivity(context);
+
         // Nếu đang uống, không cho phép chạy nhanh
         if (isDrinking)
         {
@@ -371,22 +378,29 @@ public class PlayerController : MonoBehaviour
             {
                 Debug.Log("Running started");
             }
-        }
-        else if (context.canceled)
-        {
-            isRunning = false;
-            currentMoveSpeed = walkSpeed;
 
-            if (showDebugLogs)
-            {
-                Debug.Log("Running stopped");
-            }
+            return;
+        }
+
+        if (!context.canceled)
+        {
+            return;
+        }
+
+        isRunning = false;
+        currentMoveSpeed = walkSpeed;
+
+        if (showDebugLogs)
+        {
+            Debug.Log("Running stopped");
         }
     }
 
     // New method to handle Dash input
     public void onDash(InputAction.CallbackContext context)
     {
+        MarkInputSystemActivity(context);
+
         if (context.performed && canDash && !isDashing && isGrounded)
         {
             StartDash();
@@ -436,6 +450,8 @@ public class PlayerController : MonoBehaviour
     // Replace onJump method with this improved version
     public void onJump(InputAction.CallbackContext context)
     {
+        MarkInputSystemActivity(context);
+
         // Only jump on button press (not release), when grounded and not in cooldown
         if (context.performed && isGrounded && jumpCooldownTimer <= 0 && !isJumping)
         {
@@ -472,6 +488,8 @@ public class PlayerController : MonoBehaviour
     // New method to handle attack input from Input System
     public void onAttack(InputAction.CallbackContext context)
     {
+        MarkInputSystemActivity(context);
+
         // Only attack on button press (not release/hold), when not already attacking
         if (context.performed && !isHitting && attackCooldownTimer <= 0 && !isDrinking)
         {
@@ -501,6 +519,26 @@ public class PlayerController : MonoBehaviour
         {
             Debug.Log($"Jump physics applied with velocity: {jumpVelocity}");
         }
+    }
+
+    private void MarkInputSystemActivity(InputAction.CallbackContext context)
+    {
+        if (!context.started && !context.performed && !context.canceled)
+        {
+            return;
+        }
+
+        lastInputSystemEventTime = Time.unscaledTime;
+    }
+
+    private bool ShouldUseLegacyInputFallback()
+    {
+        if (!useLegacyInputFallback)
+        {
+            return false;
+        }
+
+        return Time.unscaledTime - lastInputSystemEventTime > inputSystemFallbackDelay;
     }
 
     // Similarly, update the legacy input method
@@ -560,7 +598,10 @@ public class PlayerController : MonoBehaviour
         UpdateJumpAnimationState();
 
         // Try fallback input in case new Input System is not working
-        CheckLegacyInput();
+        if (ShouldUseLegacyInputFallback())
+        {
+            CheckLegacyInput();
+        }
 
         // Check if we are grounded
         CheckGrounded();
