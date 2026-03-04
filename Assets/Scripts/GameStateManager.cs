@@ -17,6 +17,8 @@ public class GameStateManager : MonoBehaviour
     private bool isTransitioning = false;
     private PlayerHealthController playerHealth;
     private BossHealthBarController bossHealth;
+    private bool hasSeenPlayerReference = false;
+    private bool hasSeenBossReference = false;
 
     // Make this a singleton to ensure we only have one instance
     public static GameStateManager Instance { get; private set; }
@@ -94,6 +96,11 @@ public class GameStateManager : MonoBehaviour
                 }
             }
         }
+
+        if (player != null)
+        {
+            hasSeenPlayerReference = true;
+        }
             
         if (boss == null)
         {
@@ -131,6 +138,10 @@ public class GameStateManager : MonoBehaviour
             }
         }
 
+        if (boss != null)
+        {
+            hasSeenBossReference = true;
+        }
         // Get health components
         if (player != null)
         {
@@ -173,21 +184,23 @@ public class GameStateManager : MonoBehaviour
 
     private bool CheckWinCondition()
     {
-        // Boss object is destroyed/removed from scene
+        if (!hasSeenBossReference)
+        {
+            return false;
+        }
+
         if (boss == null)
         {
             Debug.Log("Win condition: Boss object is null");
             return true;
         }
 
-        // Boss health component is missing or null
         if (bossHealth == null)
         {
             Debug.Log("Win condition: BossHealthBarController is null");
             return true;
         }
 
-        // Boss health equals 0
         if (bossHealth.luongMauHienTai <= 0)
         {
             Debug.Log("Win condition: Boss health is 0 or less");
@@ -199,21 +212,23 @@ public class GameStateManager : MonoBehaviour
 
     private bool CheckLossCondition()
     {
-        // Player object is destroyed/removed from scene
+        if (!hasSeenPlayerReference)
+        {
+            return false;
+        }
+
         if (player == null)
         {
             Debug.Log("Loss condition: Player object is null");
             return true;
         }
 
-        // Player health component is missing or null
         if (playerHealth == null)
         {
             Debug.Log("Loss condition: PlayerHealthController is null");
             return true;
         }
 
-        // Player health equals 0
         if (playerHealth.luongMauHienTai <= 0)
         {
             Debug.Log("Loss condition: Player health is 0 or less");

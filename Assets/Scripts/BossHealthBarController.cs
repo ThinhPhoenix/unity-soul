@@ -33,6 +33,7 @@ public class BossHealthBarController : MonoBehaviour
     private bool isFlashing = false;
     private float targetSliderValue;
     private bool isDead = false;
+    private bool hasSentDefeatSignal = false;
     
     // Reference to GameStateManager
     private GameStateManager gameStateManager;
@@ -169,15 +170,29 @@ public class BossHealthBarController : MonoBehaviour
             isDead = true;
             Debug.Log("Boss defeated! Health reached zero.");
             
-            // Notify GameStateManager if available
-            if (gameStateManager != null)
-            {
-                gameStateManager.NotifyBossDefeated();
-            }
+            NotifyDefeat();
             
             // Start death sequence
             StartCoroutine(DestroyBossAfterDelay(destroyDelay));
         }
+    }
+
+    private void NotifyDefeat()
+    {
+        if (hasSentDefeatSignal)
+        {
+            return;
+        }
+
+        hasSentDefeatSignal = true;
+
+        if (gameStateManager != null)
+        {
+            gameStateManager.NotifyBossDefeated();
+            return;
+        }
+
+        Debug.LogWarning("GameStateManager is missing when boss is defeated.");
     }
     
     private void PlayDamageSound()
@@ -243,17 +258,6 @@ public class BossHealthBarController : MonoBehaviour
             }
         }
         
-        // Try to notify GameStateManager one more time
-        if (gameStateManager != null)
-        {
-            gameStateManager.NotifyBossDefeated();
-        }
-        else if (autoLoadWinScene)
-        {
-            // Direct scene load as fallback if GameStateManager isn't available
-            Debug.Log("No GameStateManager found. Loading win scene directly...");
-            SceneManager.LoadScene(winSceneIndex);
-        }
         
         // Xóa đối tượng boss
         Debug.Log($"Boss object ({gameObject.name}) is now being destroyed!");
@@ -264,18 +268,6 @@ public class BossHealthBarController : MonoBehaviour
     {
         Debug.Log($"Boss OnDestroy event triggered for {gameObject.name}");
         
-        // Try to notify GameStateManager one final time
-        if (gameStateManager != null)
-        {
-            Debug.Log("Final boss destruction notification to GameStateManager");
-            gameStateManager.NotifyBossDefeated();
-        }
-        else if (isDead && autoLoadWinScene)
-        {
-            // Direct scene load as final fallback
-            Debug.Log("Attempting direct scene load from OnDestroy");
-            SceneManager.LoadScene(winSceneIndex);
-        }
     }
     
     // Test function to directly damage boss from Inspector

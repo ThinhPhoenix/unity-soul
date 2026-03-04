@@ -68,25 +68,29 @@ public class PlayerHealthController : MonoBehaviour
         {
             Debug.Log("Player died!");
             isDead = true;
-            
-            // Handle death directly if GameStateManager isn't working
+
+            if (gameStateManager != null)
+            {
+                gameStateManager.ForceGameOver();
+                return;
+            }
+
             StartCoroutine(HandlePlayerDeath());
         }
     }
-    
-    // New coroutine to handle player death with a failsafe
+
+    // Fallback only when GameStateManager is unavailable
     private System.Collections.IEnumerator HandlePlayerDeath()
     {
-        // Give the GameStateManager a chance to process first
         yield return new WaitForSeconds(0.5f);
-        
-        // If we're still in the scene, the GameStateManager failed to transition
-        // So we'll do it manually as a failsafe
-        if (gameStateManager == null || gameObject.activeInHierarchy)
+
+        if (gameStateManager != null)
         {
-            Debug.LogWarning("GameStateManager didn't transition scene. Doing it manually.");
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 2); // Current scene + 2 = Lost scene
+            yield break;
         }
+
+        Debug.LogWarning("GameStateManager is missing. Loading lose scene as fallback.");
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex + 2);
     }
 
     //void Update()
