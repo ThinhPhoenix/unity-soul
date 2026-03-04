@@ -541,17 +541,6 @@ public class PlayerController : MonoBehaviour
             StartDrinking();
         }
 
-        // Update hit animation state - add this to your Update method 
-        if (isBeingHit)
-        {
-            hitAnimationTimer -= Time.deltaTime;
-
-            // End hit animation when timer expires
-            if (hitAnimationTimer <= 0)
-            {
-                EndHitAnimation();
-            }
-        }
 
         // Update immunity timer
         if (hitImmunityTimer > 0)
