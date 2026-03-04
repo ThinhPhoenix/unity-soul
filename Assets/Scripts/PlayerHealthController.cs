@@ -21,17 +21,18 @@ public class PlayerHealthController : MonoBehaviour
         healthBarScript.capNhatThanhMau(luongMauHienTai, luongMauToiDa);
         
         // Try to find the GameStateManager
-        gameStateManager = FindObjectOfType<GameStateManager>();
+        gameStateManager = GameStateManager.Instance;
         if (gameStateManager == null)
         {
-            Debug.LogWarning("GameStateManager not found in scene. Adding one now.");
-            
-            // Create a new GameStateManager if none exists
-            GameObject gsmObject = new GameObject("GameStateManager");
-            gameStateManager = gsmObject.AddComponent<GameStateManager>();
+            gameStateManager = FindFirstObjectByType<GameStateManager>();
+        }
+
+        if (gameStateManager == null)
+        {
+            Debug.LogWarning("GameStateManager not found in scene. Creating one now.");
+            gameStateManager = GameStateManager.GetInstance();
         }
     }
-
     // Xóa hoặc vô hiệu hóa phương thức OnMouseDown để ngăn không cho người chơi tự mất máu khi nhấn chuột trái
     // private void OnMouseDown()
     // {

@@ -19,6 +19,8 @@ public class GameStateManager : MonoBehaviour
     private BossHealthBarController bossHealth;
     private bool hasSeenPlayerReference = false;
     private bool hasSeenBossReference = false;
+    [SerializeField] private float missingReferenceSearchInterval = 0.5f;
+    private float nextReferenceSearchTime = 0f;
 
     // Make this a singleton to ensure we only have one instance
     public static GameStateManager Instance { get; private set; }
@@ -63,7 +65,7 @@ public class GameStateManager : MonoBehaviour
         if (staticInstance == null)
         {
             // Try to find it if not registered
-            staticInstance = FindObjectOfType<GameStateManager>();
+            staticInstance = FindFirstObjectByType<GameStateManager>();
             
             // Create one if none exists
             if (staticInstance == null)
@@ -88,7 +90,7 @@ public class GameStateManager : MonoBehaviour
             // If tag fails, try to find by type
             if (player == null)
             {
-                PlayerHealthController[] playerHealths = FindObjectsOfType<PlayerHealthController>();
+                PlayerHealthController[] playerHealths = FindObjectsByType<PlayerHealthController>(FindObjectsSortMode.None);
                 if (playerHealths.Length > 0)
                 {
                     player = playerHealths[0].gameObject;
@@ -106,7 +108,7 @@ public class GameStateManager : MonoBehaviour
         {
             // Don't use tag directly since it might not be defined
             // Try finding by component type first
-            BossHealthBarController[] bossControllers = FindObjectsOfType<BossHealthBarController>();
+            BossHealthBarController[] bossControllers = FindObjectsByType<BossHealthBarController>(FindObjectsSortMode.None);
             if (bossControllers.Length > 0)
             {
                 boss = bossControllers[0].gameObject;
@@ -115,7 +117,7 @@ public class GameStateManager : MonoBehaviour
             else
             {
                 // Also try BossCollider as a backup
-                BossCollider[] bossColliders = FindObjectsOfType<BossCollider>();
+                BossCollider[] bossColliders = FindObjectsByType<BossCollider>(FindObjectsSortMode.None);
                 if (bossColliders.Length > 0)
                 {
                     boss = bossColliders[0].gameObject;
@@ -163,8 +165,10 @@ public class GameStateManager : MonoBehaviour
             return;
 
         // Try to find references if they're missing
-        if (player == null || boss == null || playerHealth == null || bossHealth == null)
+        bool hasMissingReferences = player == null || boss == null || playerHealth == null || bossHealth == null;
+        if (hasMissingReferences && Time.unscaledTime >= nextReferenceSearchTime)
         {
+            nextReferenceSearchTime = Time.unscaledTime + missingReferenceSearchInterval;
             FindReferences();
         }
 

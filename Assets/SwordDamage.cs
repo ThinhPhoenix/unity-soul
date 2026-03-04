@@ -217,7 +217,7 @@ public class SwordDamage : MonoBehaviour
         Debug.Log("Sword damage enabled for testing. Try hitting the boss now.");
         
         // Find all boss objects in scene for debug info
-        BossHealthBarController[] allBossesInScene = FindObjectsOfType<BossHealthBarController>();
+        BossHealthBarController[] allBossesInScene = FindObjectsByType<BossHealthBarController>(FindObjectsSortMode.None);
         Debug.Log($"Found {allBossesInScene.Length} boss objects in scene");
         foreach (var boss in allBossesInScene)
         {

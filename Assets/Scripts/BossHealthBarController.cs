@@ -81,21 +81,18 @@ public class BossHealthBarController : MonoBehaviour
     
     private void FindGameStateManager()
     {
-        // Method 1: Using the Instance property
         gameStateManager = GameStateManager.Instance;
-        
-        // Method 2: Using FindObjectOfType if Method 1 failed
+
         if (gameStateManager == null)
         {
-            gameStateManager = FindObjectOfType<GameStateManager>();
+            gameStateManager = FindFirstObjectByType<GameStateManager>();
         }
-        
-        // Method 3: Using static accessor if implemented
-        if (gameStateManager == null && typeof(GameStateManager).GetMethod("GetInstance") != null)
+
+        if (gameStateManager == null)
         {
             gameStateManager = GameStateManager.GetInstance();
         }
-        
+
         // Log result
         if (gameStateManager == null)
         {
