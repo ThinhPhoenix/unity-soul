@@ -128,30 +128,24 @@ public class PlayerController : MonoBehaviour
     private HashSet<Collider> collidingObjects = new HashSet<Collider>();
     private float nextObstacleLogTime = 0f;
 
+    private void Awake()
+    {
+        ResolveSwordDamageBinding();
+    }
+
     void Start()
     {
+        ResolveSwordDamageBinding();
         InitializeComponents();
-        currentMoveSpeed = walkSpeed; // Default to walking speed
-                                      // Find SwordDamage component if it's not assigned
-                                      // Setup audio source
+        currentMoveSpeed = walkSpeed;
         playerAudioSource = GetComponent<AudioSource>();
         if (playerAudioSource == null)
         {
             playerAudioSource = gameObject.AddComponent<AudioSource>();
-            playerAudioSource.spatialBlend = 0.8f; // Mostly 3D sound
+            playerAudioSource.spatialBlend = 0.8f;
             playerAudioSource.volume = 0.8f;
         }
 
-        if (swordColliderScript == null && swordColliderObject != null)
-        {
-            swordColliderScript = swordColliderObject.GetComponent<SwordDamage>();
-            if (swordColliderScript == null)
-            {
-                Debug.LogWarning("SwordDamage component not found on swordColliderObject. Adding one now.");
-                swordColliderScript = swordColliderObject.AddComponent<SwordDamage>();
-            }
-        }
-        // Only create trail renderer if useDashTrail is true
         if (useDashTrail)
         {
             dashTrail = GetComponent<TrailRenderer>();
@@ -169,13 +163,95 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // Remove trail renderer if it exists and we don't want to use it
             dashTrail = GetComponent<TrailRenderer>();
             if (dashTrail != null)
             {
                 Destroy(dashTrail);
             }
         }
+    }
+
+    private void ResolveSwordDamageBinding()
+    {
+        if (swordColliderObject == null)
+        {
+            return;
+        }
+
+        SwordDamage assignedSwordDamage = swordColliderScript;
+        if (assignedSwordDamage == null)
+        {
+            assignedSwordDamage = swordColliderObject.GetComponent<SwordDamage>();
+        }
+
+        if (assignedSwordDamage == null)
+        {
+            assignedSwordDamage = swordColliderObject.GetComponentInChildren<SwordDamage>(true);
+        }
+
+        Collider assignedCollider = assignedSwordDamage != null ? assignedSwordDamage.GetComponent<Collider>() : null;
+        if (assignedCollider != null)
+        {
+            swordColliderScript = assignedSwordDamage;
+            swordColliderObject = assignedSwordDamage.gameObject;
+            return;
+        }
+
+        Collider fallbackCollider = swordColliderObject.GetComponentInChildren<Collider>(true);
+        if (fallbackCollider == null)
+        {
+            if (assignedSwordDamage == null)
+            {
+                swordColliderScript = swordColliderObject.AddComponent<SwordDamage>();
+            }
+            else
+            {
+                swordColliderScript = assignedSwordDamage;
+            }
+
+            if (showDebugLogs)
+            {
+                Debug.LogWarning("Sword collider not found. Using swordColliderObject for SwordDamage.");
+            }
+
+            return;
+        }
+
+        SwordDamage fallbackSwordDamage = fallbackCollider.GetComponent<SwordDamage>();
+        if (fallbackSwordDamage == null)
+        {
+            fallbackSwordDamage = fallbackCollider.gameObject.AddComponent<SwordDamage>();
+        }
+
+        CopySwordDamageSettings(assignedSwordDamage, fallbackSwordDamage);
+        fallbackSwordDamage.canDealDamage = false;
+
+        if (assignedSwordDamage != null && assignedSwordDamage != fallbackSwordDamage && assignedSwordDamage.GetComponent<Collider>() == null)
+        {
+            assignedSwordDamage.canDealDamage = false;
+            assignedSwordDamage.enabled = false;
+        }
+
+        swordColliderScript = fallbackSwordDamage;
+        swordColliderObject = fallbackCollider.gameObject;
+
+        if (showDebugLogs)
+        {
+            Debug.Log($"SwordDamage bound to collider object: {swordColliderObject.name}");
+        }
+    }
+
+    private void CopySwordDamageSettings(SwordDamage source, SwordDamage target)
+    {
+        if (source == null || target == null || source == target)
+        {
+            return;
+        }
+
+        target.damage = source.damage;
+        target.damageLayers = source.damageLayers;
+        target.hitEffectPrefab = source.hitEffectPrefab;
+        target.showDebug = source.showDebug;
     }
 
     // Called by animation events at the start of the attack swing
