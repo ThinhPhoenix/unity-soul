@@ -2634,8 +2634,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 617cf089d83af774596d3364398d63d9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  swordColliderObject: {fileID: 0}
-  swordColliderScript: {fileID: 0}
+  swordColliderObject: {fileID: 2112778124}
+  swordColliderScript: {fileID: 2112778125}
   walkSpeed: 2
   runSpeed: 7
   rotationSpeed: 15
@@ -6010,13 +6010,13 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 7406372957917492936}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2112778124}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4a5908f144841446dbd0ec11ebb7b85d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   damage: 100
-  canDealDamage: 1
+  canDealDamage: 0
   damageLayers:
     serializedVersion: 2
     m_Bits: 4294967295
