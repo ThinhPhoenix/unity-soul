@@ -6,7 +6,7 @@ public class BossHealthBarController : MonoBehaviour
 {
     [Header("Health Settings")]
     public float luongMauHienTai;
-    public float luongMauToiDa = 300;
+    public float luongMauToiDa = 1000;
     
     [Header("UI References")]
     [SerializeField] private Slider healthSlider; // Replace BossHealthBar with Slider
