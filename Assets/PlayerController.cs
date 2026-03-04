@@ -173,6 +173,8 @@ public class PlayerController : MonoBehaviour
 
     private void ResolveSwordDamageBinding()
     {
+        DisableLegacySwordColliders();
+
         if (swordColliderObject == null)
         {
             return;
@@ -252,6 +254,24 @@ public class PlayerController : MonoBehaviour
         target.damageLayers = source.damageLayers;
         target.hitEffectPrefab = source.hitEffectPrefab;
         target.showDebug = source.showDebug;
+    }
+
+    private void DisableLegacySwordColliders()
+    {
+        SwordCollider[] legacyColliders = GetComponentsInChildren<SwordCollider>(true);
+        foreach (SwordCollider legacyCollider in legacyColliders)
+        {
+            if (!legacyCollider.enabled)
+            {
+                continue;
+            }
+
+            legacyCollider.enabled = false;
+            if (showDebugLogs)
+            {
+                Debug.Log($"Disabled legacy SwordCollider on {legacyCollider.gameObject.name}");
+            }
+        }
     }
 
     // Called by animation events at the start of the attack swing
