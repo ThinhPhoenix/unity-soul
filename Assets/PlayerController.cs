@@ -124,6 +124,11 @@ public class PlayerController : MonoBehaviour
     private bool isRunning = false;  // New parameter to track running state
     private float currentMoveSpeed;  // New parameter to store current speed
 
+    private const float MovementInputThreshold = 0.1f;
+    private const float LandingVelocityThreshold = 0.1f;
+    private const float JumpLandingProgressThreshold = 0.6f;
+    private const float DrinkingMoveSpeedMultiplier = 0.7f;
+    private const float AttackAnimationFinishedThreshold = 0.95f;
     // Keep track of colliding objects for debugging
     private HashSet<Collider> collidingObjects = new HashSet<Collider>();
     private float nextObstacleLogTime = 0f;
@@ -339,7 +344,7 @@ public class PlayerController : MonoBehaviour
         moveInput = context.ReadValue<Vector2>();
 
         // Emergency debug for input
-        if (showDebugLogs && moveInput.magnitude > 0.1f)
+        if (showDebugLogs && moveInput.magnitude > MovementInputThreshold)
         {
             Debug.Log($"Input received: {moveInput}");
         }
@@ -392,7 +397,7 @@ public class PlayerController : MonoBehaviour
     private void StartDash()
     {
         // Use movement input if available, otherwise use facing direction
-        if (moveInput.magnitude > 0.1f)
+        if (moveInput.magnitude > MovementInputThreshold)
         {
             dashDirection = GetMovementDirection().normalized;
         }
@@ -538,108 +543,147 @@ public class PlayerController : MonoBehaviour
     // Update method changes for better jump animation tracking
     void Update()
     {
-        if (!hasInitialized)
+        if (!EnsureInitialized())
         {
-            InitializeComponents();
             return;
         }
 
-        if (isBeingHit)
-        {
-            hitAnimationTimer -= Time.deltaTime;
+        UpdateHitReactionState();
 
-            // End hit animation when timer expires
-            if (hitAnimationTimer <= 0)
-            {
-                EndHitAnimation();
-            }
-        }
-
-        // Update jump cooldown timer
-        if (jumpCooldownTimer > 0)
+        if (jumpCooldownTimer > 0f)
         {
             jumpCooldownTimer -= Time.deltaTime;
         }
 
-        // Update attack state
         UpdateAttackState();
-
-        // Update dash timers
-        if (isDashing)
-        {
-            dashTimer -= Time.deltaTime;
-            if (dashTimer <= 0)
-            {
-                EndDash();
-            }
-        }
-
-        // Update dash cooldown
-        if (!canDash)
-        {
-            dashCooldownTimer -= Time.deltaTime;
-            if (dashCooldownTimer <= 0)
-            {
-                canDash = true;
-            }
-        }
-
-        // Update jump animation timer
-        if (isJumpAnimationPlaying)
-        {
-            jumpAnimationTimer += Time.deltaTime;
-
-            // Check if jump animation should end based on timer or landing
-            if ((jumpAnimationTimer >= jumpAnimationDuration && isGrounded) ||
-                (isGrounded && jumpAnimationTimer > jumpAnimationDuration * 0.6f && playerVelocity.y < 0.1f))
-            {
-                StartCoroutine(EndJumpAnimation());
-                isJumpAnimationPlaying = false;
-            }
-        }
+        UpdateDashState();
+        UpdateJumpAnimationState();
 
         // Try fallback input in case new Input System is not working
         CheckLegacyInput();
 
         // Check if we are grounded
         CheckGrounded();
+        FinalizeJumpLandingState();
 
-        // Handle jump state completion when landing
-        if (isGrounded && isJumping && playerVelocity.y < 0.1f && jumpAnimationTimer > jumpAnimationDuration * 0.6f)
-        {
-            isJumping = false;
-        }
-
-        // Check for obstacles
+        // Handle movement and physics
         CheckForObstacles();
-
-        // Handle movement
         HandleMovement();
-
-        // Apply gravity
         ApplyGravity();
-
-        // Apply final movement
         ApplyMovement();
 
         // Update animator if present
         UpdateAnimator();
 
-        // Debug key to help unstuck
+        HandleDebugInput();
+        HandleDrinkingInput();
+        UpdateHitImmunityTimer();
+    }
+
+    private bool EnsureInitialized()
+    {
+        if (hasInitialized)
+        {
+            return true;
+        }
+
+        InitializeComponents();
+        return false;
+    }
+
+    private void UpdateHitReactionState()
+    {
+        if (!isBeingHit)
+        {
+            return;
+        }
+
+        hitAnimationTimer -= Time.deltaTime;
+        if (hitAnimationTimer <= 0f)
+        {
+            EndHitAnimation();
+        }
+    }
+
+    private void UpdateDashState()
+    {
+        if (isDashing)
+        {
+            dashTimer -= Time.deltaTime;
+            if (dashTimer <= 0f)
+            {
+                EndDash();
+            }
+        }
+
+        if (!canDash)
+        {
+            dashCooldownTimer -= Time.deltaTime;
+            if (dashCooldownTimer <= 0f)
+            {
+                canDash = true;
+            }
+        }
+    }
+
+    private void UpdateJumpAnimationState()
+    {
+        if (!isJumpAnimationPlaying)
+        {
+            return;
+        }
+
+        jumpAnimationTimer += Time.deltaTime;
+        if (ShouldEndJumpAnimation())
+        {
+            StartCoroutine(EndJumpAnimation());
+            isJumpAnimationPlaying = false;
+        }
+    }
+
+    private bool ShouldEndJumpAnimation()
+    {
+        bool jumpAnimationTimeReached = jumpAnimationTimer >= jumpAnimationDuration && isGrounded;
+        bool earlyLandingDetected = isGrounded
+            && jumpAnimationTimer > jumpAnimationDuration * JumpLandingProgressThreshold
+            && playerVelocity.y < LandingVelocityThreshold;
+
+        return jumpAnimationTimeReached || earlyLandingDetected;
+    }
+
+    private void FinalizeJumpLandingState()
+    {
+        bool hasLandedAfterJump = isGrounded
+            && isJumping
+            && playerVelocity.y < LandingVelocityThreshold
+            && jumpAnimationTimer > jumpAnimationDuration * JumpLandingProgressThreshold;
+
+        if (hasLandedAfterJump)
+        {
+            isJumping = false;
+        }
+    }
+
+    private void HandleDebugInput()
+    {
         if (Input.GetKeyDown(KeyCode.F))
         {
             AttemptUnstuck();
         }
+    }
 
-        // Kiểm tra phím R - chỉ khi không đang uống, đang đứng trên mặt đất và không đang dash/nhảy
-        if (Input.GetKeyDown(KeyCode.R) && !isDrinking && isGrounded && !isDashing && !isJumping)
+    private void HandleDrinkingInput()
+    {
+        bool canStartDrinking = !isDrinking && isGrounded && !isDashing && !isJumping;
+        if (canStartDrinking && Input.GetKeyDown(KeyCode.R))
         {
             StartDrinking();
         }
+    }
 
-
-        // Update immunity timer
-        if (hitImmunityTimer > 0)
+    private void UpdateHitImmunityTimer()
+    {
+        if (hitImmunityTimer > 0f)
         {
             hitImmunityTimer -= Time.deltaTime;
         }
@@ -675,7 +719,7 @@ public class PlayerController : MonoBehaviour
         float normalizedSpeed = 0;
 
         // Only update movement speed when not jumping or in the landing phase
-        if (velocity.magnitude > 0.1f && (!isJumping || (isGrounded && playerVelocity.y < 0.1f)))
+        if (velocity.magnitude > MovementInputThreshold && (!isJumping || (isGrounded && playerVelocity.y < LandingVelocityThreshold)))
         {
             normalizedSpeed = isRunning ? 1.0f : 0.5f;
         }
@@ -809,7 +853,7 @@ public class PlayerController : MonoBehaviour
         collidingObjects.Clear();
 
         // Skip if not trying to move
-        if (moveInput.magnitude <= 0.1f) return;
+        if (moveInput.magnitude <= MovementInputThreshold) return;
 
         // Get the direction we're trying to move in
         Vector3 moveDir = GetMovementDirection();
@@ -913,39 +957,32 @@ public class PlayerController : MonoBehaviour
 
     private void HandleMovement()
     {
-        // Skip if no input
-        if (moveInput.magnitude <= 0.1f)
+        if (moveInput.magnitude <= MovementInputThreshold)
         {
             moveDirection = Vector3.zero;
             velocity = Vector3.zero;
             return;
         }
 
-        // Get movement direction from camera
         Vector3 desiredMoveDirection = GetMovementDirection();
-
-        // Keep track of velocity for animation - Normalize for direction but keep magnitude for speed blend
         velocity = desiredMoveDirection * moveInput.magnitude;
 
-        // Nếu đang uống, giảm tốc độ di chuyển
-        if (isDrinking)
-        {
-            // Vẫn cho phép di chuyển nhưng với tốc độ đi bộ
-            isRunning = false;
-            currentMoveSpeed = walkSpeed * 0.7f; // Giảm tốc độ xuống 70% tốc độ đi bộ
-        }
-        else
-        {
-            // Apply current movement speed (walk or run)
-            currentMoveSpeed = isRunning ? runSpeed : walkSpeed;
-        }
-
-        // Apply current movement speed (walk or run)
+        currentMoveSpeed = ResolveCurrentMoveSpeed();
         moveDirection = desiredMoveDirection * currentMoveSpeed;
 
-        // Rotate towards movement direction
         Quaternion targetRotation = Quaternion.LookRotation(desiredMoveDirection);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+    }
+
+    private float ResolveCurrentMoveSpeed()
+    {
+        if (isDrinking)
+        {
+            isRunning = false;
+            return walkSpeed * DrinkingMoveSpeedMultiplier;
+        }
+
+        return isRunning ? runSpeed : walkSpeed;
     }
 
     private void ApplyMovement()
@@ -968,7 +1005,7 @@ public class PlayerController : MonoBehaviour
         CollisionFlags flags = characterController.Move(moveVector * Time.deltaTime);
 
         // If we hit something, try alternative directions
-        if ((flags & CollisionFlags.Sides) != 0 && moveDirection.magnitude > 0.1f && !isDashing)
+        if ((flags & CollisionFlags.Sides) != 0 && moveDirection.magnitude > MovementInputThreshold && !isDashing)
         {
             AttemptSideMovement();
         }
@@ -1060,7 +1097,7 @@ public class PlayerController : MonoBehaviour
         Gizmos.DrawLine(rayStart, rayStart + Vector3.down * groundCheckDistance);
 
         // Show movement direction
-        if (moveDirection.magnitude > 0.1f)
+        if (moveDirection.magnitude > MovementInputThreshold)
         {
             Gizmos.color = isObstacleInFront ? Color.red : Color.blue;
             Gizmos.DrawRay(transform.position + Vector3.up, moveDirection.normalized);
@@ -1074,7 +1111,7 @@ public class PlayerController : MonoBehaviour
         }
 
         // Show obstacle detection rays
-        if (moveInput.magnitude > 0.1f && Application.isPlaying)
+        if (moveInput.magnitude > MovementInputThreshold && Application.isPlaying)
         {
             Vector3 moveDir = GetMovementDirection();
 
@@ -1121,7 +1158,7 @@ public class PlayerController : MonoBehaviour
         // Add to colliding objects set
         collidingObjects.Add(hit.collider);
 
-        if (showDebugLogs && Time.time > nextObstacleLogTime && moveInput.magnitude > 0.1f)
+        if (showDebugLogs && Time.time > nextObstacleLogTime && moveInput.magnitude > MovementInputThreshold)
         {
             nextObstacleLogTime = Time.time + 1f;
             Debug.Log($"Character controller hit: {hit.gameObject.name} at point {hit.point}, normal: {hit.normal}");
@@ -1257,106 +1294,117 @@ public class PlayerController : MonoBehaviour
             {
                 Debug.Log("Sword damage disabled after attack");
             }
+
+            yield break;
         }
-        else
+
+        // Fallback to the old method if SwordDamage component isn't set
+        Debug.LogWarning("SwordDamage component not assigned! Using fallback attack method.");
+
+        // Create attack hitbox in front of player
+        Vector3 hitboxCenter = transform.position + transform.forward * (attackRange * 0.5f);
+        Collider[] hitEnemies = Physics.OverlapSphere(hitboxCenter, attackRange * 0.5f, enemyLayer);
+        PlayerHealthController playerHealth = GetComponent<PlayerHealthController>();
+
+        foreach (Collider enemy in hitEnemies)
         {
-            // Fallback to the old method if SwordDamage component isn't set
-            Debug.LogWarning("SwordDamage component not assigned! Using fallback attack method.");
-
-            // Create attack hitbox in front of player
-            Vector3 hitboxCenter = transform.position + transform.forward * (attackRange * 0.5f);
-            Collider[] hitEnemies = Physics.OverlapSphere(hitboxCenter, attackRange * 0.5f, enemyLayer);
-
-            // Get player's health controller for comparison
-            PlayerHealthController playerHealth = GetComponent<PlayerHealthController>();
-
-            // Apply damage to enemies
-            foreach (Collider enemy in hitEnemies)
+            if (ShouldSkipAttackTarget(enemy, playerHealth))
             {
-                // Skip if this is the player itself or has the player's health controller
-                if (enemy.gameObject == gameObject || enemy.GetComponent<PlayerHealthController>() == playerHealth)
-                {
-                    if (showDebugLogs)
-                    {
-                        Debug.Log($"Skipping self-damage to player: {enemy.name}");
-                    }
-                    continue;
-                }
-
-                // Skip if this is a child of the player
-                if (enemy.transform.IsChildOf(transform))
-                {
-                    if (showDebugLogs)
-                    {
-                        Debug.Log($"Skipping damage to player's child object: {enemy.name}");
-                    }
-                    continue;
-                }
-
-                // Skip if this has the Player tag
-                if (enemy.CompareTag("Player"))
-                {
-                    if (showDebugLogs)
-                    {
-                        Debug.Log($"Skipping damage to object with Player tag: {enemy.name}");
-                    }
-                    continue;
-                }
-
-                // Kiểm tra thêm: Bỏ qua nếu đối tượng là một phần của người chơi
-                Transform parent = enemy.transform.parent;
-                bool isPartOfPlayer = false;
-                while (parent != null)
-                {
-                    if (parent.gameObject == gameObject || parent.CompareTag("Player"))
-                    {
-                        isPartOfPlayer = true;
-                        break;
-                    }
-                    parent = parent.parent;
-                }
-
-                if (isPartOfPlayer)
-                {
-                    if (showDebugLogs)
-                    {
-                        Debug.Log($"Skipping damage to part of player: {enemy.name}");
-                    }
-                    continue;
-                }
-
-                // Log the hit
-                if (showDebugLogs)
-                {
-                    Debug.Log($"Hit enemy {enemy.name} for {attackDamage} damage");
-                }
-
-                // Try to apply force to the enemy (if it has a rigidbody)
-                Rigidbody enemyRb = enemy.GetComponent<Rigidbody>();
-                if (enemyRb != null)
-                {
-                    Vector3 knockbackDirection = (enemy.transform.position - transform.position).normalized;
-                    enemyRb.AddForce(knockbackDirection * 5f + Vector3.up * 2f, ForceMode.Impulse);
-                }
-
-                // Send message to enemy - ONLY if it's not the player or a child of the player
-                BossHealthBarController bossHealth = enemy.GetComponent<BossHealthBarController>();
-                if (bossHealth != null)
-                {
-                    // If it has a boss health controller, damage it directly
-                    bossHealth.TakeDamage(attackDamage);
-                    if (showDebugLogs)
-                    {
-                        Debug.Log($"Applied damage to boss: {enemy.name}");
-                    }
-                }
-                else
-                {
-                    // Otherwise send a generic message
-                    enemy.SendMessage("TakeDamage", attackDamage, SendMessageOptions.DontRequireReceiver);
-                }
+                continue;
             }
+
+            if (showDebugLogs)
+            {
+                Debug.Log($"Hit enemy {enemy.name} for {attackDamage} damage");
+            }
+
+            ApplyAttackKnockback(enemy);
+            ApplyAttackDamage(enemy);
         }
+    }
+
+    private bool ShouldSkipAttackTarget(Collider enemy, PlayerHealthController playerHealth)
+    {
+        if (enemy.gameObject == gameObject || enemy.GetComponent<PlayerHealthController>() == playerHealth)
+        {
+            LogSkippedAttackTarget("Skipping self-damage to player", enemy);
+            return true;
+        }
+
+        if (enemy.transform.IsChildOf(transform))
+        {
+            LogSkippedAttackTarget("Skipping damage to player's child object", enemy);
+            return true;
+        }
+
+        if (enemy.CompareTag("Player"))
+        {
+            LogSkippedAttackTarget("Skipping damage to object with Player tag", enemy);
+            return true;
+        }
+
+        if (IsPartOfPlayerHierarchy(enemy.transform))
+        {
+            LogSkippedAttackTarget("Skipping damage to part of player", enemy);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsPartOfPlayerHierarchy(Transform targetTransform)
+    {
+        Transform parent = targetTransform.parent;
+        while (parent != null)
+        {
+            if (parent.gameObject == gameObject || parent.CompareTag("Player"))
+            {
+                return true;
+            }
+
+            parent = parent.parent;
+        }
+
+        return false;
+    }
+
+    private void LogSkippedAttackTarget(string reason, Collider enemy)
+    {
+        if (!showDebugLogs)
+        {
+            return;
+        }
+
+        Debug.Log($"{reason}: {enemy.name}");
+    }
+
+    private void ApplyAttackKnockback(Collider enemy)
+    {
+        Rigidbody enemyRb = enemy.GetComponent<Rigidbody>();
+        if (enemyRb == null)
+        {
+            return;
+        }
+
+        Vector3 knockbackDirection = (enemy.transform.position - transform.position).normalized;
+        enemyRb.AddForce(knockbackDirection * 5f + Vector3.up * 2f, ForceMode.Impulse);
+    }
+
+    private void ApplyAttackDamage(Collider enemy)
+    {
+        BossHealthBarController bossHealth = enemy.GetComponent<BossHealthBarController>();
+        if (bossHealth != null)
+        {
+            bossHealth.TakeDamage(attackDamage);
+            if (showDebugLogs)
+            {
+                Debug.Log($"Applied damage to boss: {enemy.name}");
+            }
+
+            return;
+        }
+
+        enemy.SendMessage("TakeDamage", attackDamage, SendMessageOptions.DontRequireReceiver);
     }
 
     // Add this method right after your EndAttack method
@@ -1526,98 +1574,147 @@ public class PlayerController : MonoBehaviour
 
     private void UpdateAttackState()
     {
-        // Update attack cooldown timer
-        if (attackCooldownTimer > 0)
+        if (attackCooldownTimer > 0f)
         {
             attackCooldownTimer -= Time.deltaTime;
         }
 
-        // Check if attack animation is still playing
-        bool isAttackAnimationPlaying = false;
-        if (animator != null)
-        {
-            AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-            // Check if any attack animation is playing (animation name contains "attack" or similar)
-            isAttackAnimationPlaying = stateInfo.IsTag("Attack") || animator.GetBool("isHitting");
-            
-            // Ensure our code state matches the animation state
-            if (isAttackAnimationPlaying && !isHitting)
-            {
-                isHitting = true;
-                if (showDebugLogs) Debug.Log("Syncing code state with animation: Setting isHitting=true");
-            }
-        }
+        bool isAttackAnimationPlaying = IsAttackAnimationPlaying();
+        SyncAttackStateWithAnimation(isAttackAnimationPlaying);
 
-        // Update attack timer
         if (isHitting)
         {
-            attackTimer -= Time.deltaTime;
-
-            // End attack when timer expires or when animation has finished
-            if (attackTimer <= 0 || (animator != null && IsAttackAnimationFinished()))
-            {
-                EndAttack();
-            }
-            
-            // Block all attack inputs while in attack animation
-            if (Input.GetMouseButtonDown(0) && showDebugLogs)
-            {
-                Debug.Log("Attack input ignored - already attacking");
-            }
-            
-            return; // Skip the rest of the method
+            UpdateActiveAttackState();
+            return;
         }
 
-        // Update combo timer
-        if (comboTimer > 0)
+        if (comboTimer > 0f)
         {
             comboTimer -= Time.deltaTime;
         }
 
-        // Only check for new attacks if not attacking, not in cooldown, etc.
-        if (attackCooldownTimer <= 0 && !isDrinking && canAttack && !isHitting && !isAttackAnimationPlaying)
+        bool mouseAttackPressed = Input.GetMouseButtonDown(0);
+        bool canStartAttack = CanStartAttack(isAttackAnimationPlaying);
+        if (canStartAttack && mouseAttackPressed)
         {
-            // Legacy input check for attacking
-            if (Input.GetMouseButtonDown(0))
+            if (showDebugLogs)
             {
-                if (showDebugLogs) Debug.Log("Attack input accepted - starting attack");
-                StartAttack();
+                Debug.Log("Attack input accepted - starting attack");
             }
+
+            StartAttack();
         }
-        else if (Input.GetMouseButtonDown(0) && showDebugLogs)
+        else if (mouseAttackPressed && showDebugLogs)
         {
-            string reason = isHitting ? "already hitting" : 
-                           isAttackAnimationPlaying ? "animation playing" :
-                           (attackCooldownTimer > 0) ? "in cooldown" :
-                           isDrinking ? "drinking" : 
-                           !canAttack ? "can't attack" : "unknown";
-                           
-            Debug.Log($"Attack input ignored - {reason}");
+            Debug.Log($"Attack input ignored - {GetBlockedAttackReason(isAttackAnimationPlaying)}");
         }
 
-        // Allow attack again after animation ends and we're not hitting
         if (!isHitting && !isAttackAnimationPlaying && !canAttack)
         {
             canAttack = true;
-            if (showDebugLogs) Debug.Log("Attack enabled again");
+            if (showDebugLogs)
+            {
+                Debug.Log("Attack enabled again");
+            }
         }
+    }
+
+    private bool IsAttackAnimationPlaying()
+    {
+        if (animator == null)
+        {
+            return false;
+        }
+
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        return stateInfo.IsTag("Attack") || animator.GetBool("isHitting");
+    }
+
+    private void SyncAttackStateWithAnimation(bool isAttackAnimationPlaying)
+    {
+        if (!isAttackAnimationPlaying || isHitting)
+        {
+            return;
+        }
+
+        isHitting = true;
+        if (showDebugLogs)
+        {
+            Debug.Log("Syncing code state with animation: Setting isHitting=true");
+        }
+    }
+
+    private void UpdateActiveAttackState()
+    {
+        attackTimer -= Time.deltaTime;
+
+        bool attackEndedByTimer = attackTimer <= 0f;
+        bool attackEndedByAnimation = animator != null && IsAttackAnimationFinished();
+        if (attackEndedByTimer || attackEndedByAnimation)
+        {
+            EndAttack();
+        }
+
+        if (Input.GetMouseButtonDown(0) && showDebugLogs)
+        {
+            Debug.Log("Attack input ignored - already attacking");
+        }
+    }
+
+    private bool CanStartAttack(bool isAttackAnimationPlaying)
+    {
+        return attackCooldownTimer <= 0f
+            && !isDrinking
+            && canAttack
+            && !isHitting
+            && !isAttackAnimationPlaying;
+    }
+
+    private string GetBlockedAttackReason(bool isAttackAnimationPlaying)
+    {
+        if (isHitting)
+        {
+            return "already hitting";
+        }
+
+        if (isAttackAnimationPlaying)
+        {
+            return "animation playing";
+        }
+
+        if (attackCooldownTimer > 0f)
+        {
+            return "in cooldown";
+        }
+
+        if (isDrinking)
+        {
+            return "drinking";
+        }
+
+        if (!canAttack)
+        {
+            return "can't attack";
+        }
+
+        return "unknown";
     }
 
     // Improved method to check if attack animation has completed
     private bool IsAttackAnimationFinished()
     {
         if (animator == null) return true;
-        
+
         AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-        
-        // Check if we're in any attack state AND it's completed
-        if ((stateInfo.IsTag("Attack") || animator.GetBool("isHitting")) 
-            && stateInfo.normalizedTime >= 0.95f)
+        bool isAttackState = stateInfo.IsTag("Attack") || animator.GetBool("isHitting");
+        bool attackAnimationFinished = stateInfo.normalizedTime >= AttackAnimationFinishedThreshold;
+
+        if (isAttackState && attackAnimationFinished)
         {
             if (showDebugLogs) Debug.Log("Attack animation finished");
             return true;
         }
-        
+
         return false;
     }
 
